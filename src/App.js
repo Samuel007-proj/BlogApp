@@ -1,15 +1,23 @@
 import './App.css';
-import { useState } from 'react';
-import {Login} from './views/login'
+import { useState, useEffect } from 'react';
+import { LoginSignUp } from './views/login'
 import Blog from "./views/blogPage"
 
 const App = () => {
-  const [isLoggedIn, setisLoggedIn] = useState(false)
+  const [user, setUser] = useState(null)
+
+  useEffect( ()=>{
+    let savedUser = window.localStorage.getItem('blogUser')
+    if(savedUser){
+      const activeUser = JSON.parse(savedUser)
+      setUser(activeUser)
+    }
+  }, [])
 
   return (
-    <div>
+    <div className="font-sans">
       {
-        !isLoggedIn ? <Login setLog={setisLoggedIn}/> : <Blog setLog={setisLoggedIn}/>
+        !user ? <LoginSignUp setUser={setUser} />: <Blog user={user} setUser={setUser}/>
       }
     </div>
   )

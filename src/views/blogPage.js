@@ -1,15 +1,39 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { InputComp, Button } from "./login";
+import services from "../services/services"
 
-const Blog = ({ setisLoggedIn }) => {
+const Blog = ({ user, setUser }) => {
 
-    const [msg, setMsg] = useState(false)
+    const [blogs, setBlogs] = useState([])
+    const [msg, setMsg] = useState({info: '', error: ''})
+    
+    useEffect(() => {
+        const userString = window.localStorage.getItem('blogUser')
+        if(userString){
+            services.setToken(user.token)
+        } else {
+            setUser(null)
+        }   
+    }, [user, setUser])
 
-    const handleLogout = e  => {
-        e.preventDefault()
-        const confirmLogout = window.confirm('are you sure')
-        if(confirmLogout) alert('username logged out')
-    }
+    useEffect(()=> {
+        (async ()=>{
+            try{
+                const blogs = await services.getAll()
+                if(blogs){
+                    setBlogs(blogs)
+                }
+            } catch (err) {
+                alert(`${err.message}, logging out`)
+                console.log(err.message)
+                setUser(null)
+            }
+            
+            
+        })()
+        
+    }, [setUser])
+
     return(
         <div>
             <div className="flex flexwrap w-full mb-10 pt-5 pb-5 items-baseline shadow-sm">
@@ -17,36 +41,67 @@ const Blog = ({ setisLoggedIn }) => {
                     <h1>Blogs</h1>
                 </div>
                 <div className="text-normal text-slate-400 font-normal tracking-wide shrink-0 pr-[5%] md:pr-[10%] lg:pr-[12.5%] lg:text-xl">
-                    <form onSubmit={handleLogout}>
-                        <label>Username</label>
-                        <button className="shrink-0 px-2 py-1 ml-3 border border-slate-200 text-md rounded-lg font-light text-sm">logout</button>
-                    </form>
-                    
+                    <ActiveUser user={user} setUser={setUser} msg={msg} setMsgTime={setMsg} />
                 </div>
             </div>
-            {msg && <NewBlogSubmit />}
-            <NewBlogForm setMsgTime={setMsg}/>
-            <UsersBlogs blogs={blogs}/>
+            { (msg.info || msg.error) && <Msg msg={msg}/> }
+            <NewBlogForm setMsgTime={setMsg} msg={msg} setBlogs={setBlogs} blogs={blogs} setUser={setUser}/>
+            <UsersBlogs blogs={blogs} setBlog={setBlogs} user={user}/>
         </div>
     )
 }
 
-const ActiveUser = () => {
+const ActiveUser = ({ user, setUser, msg, setMsgTime }) => {
 
+    const handleLogout = e  => {
+        e.preventDefault()
+        
+        try{
+            const confirmLogout = window.confirm('are you sure')
+            if(confirmLogout){
+                window.localStorage.removeItem('blogUser')
+                setUser(null)     
+            } 
+            setMsgTime({ ...msg, info: `{user.username} logged out` })
+        } catch(err){
+            setMsgTime({ ...msg, error: err.message })
+        } 
+    }
+
+    return(
+        <form onSubmit={handleLogout}>
+            <label>{user.username}</label>
+            <button className="shrink-0 px-2 py-1 ml-3 border border-slate-200 hover:bg-slate-400 hover:text-slate-100 text-md rounded-lg font-light text-sm">logout</button>
+        </form>
+    )
 }
 
-const NewBlogForm = ({ setMsgTime }) => {
+const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser}) => {
     let [blogEntry, setBlogEntry] = useState({
         title:'',
         author: '',
         url: ''
     })
 
-    const handleNewBlog = e => {
+    const handleNewBlog = async (e) => {
         e.preventDefault()
-        setBlogEntry({title: '', author: '', url: ''})
-        setTimeout( ()=> setMsgTime(false), 5000)
-        setMsgTime(true)
+        const newBlog = {
+            title: blogEntry.title,
+            author: blogEntry.author,
+            url: blogEntry.url,
+            likes: Math.floor(100 * Math.random())
+        }
+        try{
+            const savedBlog = await services.create(newBlog)
+            if(savedBlog) setBlogs( blogs.concat(savedBlog) )
+            setBlogEntry({title: '', author: '', url: ''})
+            alert(`Created ${savedBlog.title}`)
+        } catch(err){
+            setMsgTime({...msg, error: err.message})
+            alert('logging out')
+            setUser(null)
+        }
+  
     }
     return (
         <div className="w-[90%] mx-auto mb-10 p-3 border border-slate-200 rounded-md shadow-md md:w-[80%] lg:w-[75%] lg:text-xl">
@@ -61,38 +116,62 @@ const NewBlogForm = ({ setMsgTime }) => {
     
 }
 
-const UsersBlogs = ({blogs}) => {
+const UsersBlogs = ({blogs, setBlog, user}) => {
+
+    const handleDeletion = async (event) => {
+        event.preventDefault()
+        const blogToDelete = JSON.parse(event.target.attributes.blogtodelete.value)
+        const blogToDeleteUser = blogToDelete?.user?.username
+        const activeUser = user.username
+        const id = blogToDelete.id
+
+        if( activeUser === blogToDeleteUser){
+            try{
+               await services.deleteBlog(id)
+            }catch ( err ) {
+                alert(err.message)
+            }
+            setBlog(blogs.filter( blog => blog.id !== id))
+
+        } else {
+            alert('You are allowed to delete this blog')
+        }
+    }
+
     return(
         <div className="w-[90%] md:w-[80%] lg:w-[75%] mx-auto border border-slate-200 rounded-md mb-10 flexwrap">
-            <ul className="list-none p-6 divide-y divide-slate-200">
+            <ul className="list-none p-6 divide-y divide-slate-200 text-slate-500">
                 {
-                    blogs.map((blog, index) => {
-                        return <li id={index} className=" flex py-4 items-baseline">
-                                    <p className="w-full">{blog}</p>
-                                    <button className="shrink-0 p-2 ml-5 border-none bg-slate-400 text-md text-slate-100 border rounded-lg">delete</button>
-                                </li>
+                    blogs.map((blog) => {
+                            return <li id={blog.id} className=" flex w-full py-4 items-baseline">
+                                        
+                                        <div className="w-full">
+                                            <p className="text-slate-600 font-bold ">{blog.title}</p>
+                                            <p>{blog.author}</p>
+                                            <p>{`${blog.likes}K`}</p>
+                                            <p className="underline italic text-blue-500 active:text-blue-500 visited:text-indigo-400"><a  target='blank' href={blog.url}>{blog.url}</a></p> 
+                                        </div>
+
+                                        <div className=" italic text-slate-400 font-normal block ">
+                                            { blog.user?.username ? <p>Posted by {blog.user.username}</p> : ''}
+                                        </div>
+                                        <form blogtodelete={ JSON.stringify(blog) } onSubmit={ handleDeletion }>
+                                            <button className="shrink-0 p-2 ml-5 border border-slate-400 hover:border-none hover:bg-slate-400 text-sm font-semibold text-slate-400  hover:text-slate-100 border rounded-lg">delete</button>
+                                        </form>
+                                    </li>
                     })
                 }
             </ul>
-                
         </div>
     )
 }
 
-const NewBlogSubmit = () => {
+const Msg = ({ msg }) => {
     return(
-        <div className="text-normal tracking-wide text-slate-500 font-bold p-2 w-[90%] md:w-[80%] lg:w-[75%] border bg-yellow-300 rounded-sm shadow-sm mb-10 mx-auto text-center">
-            <p>A new blog by Username added</p>
+        <div className="text-normal tracking-wide text-slate-500 font-bold p-2 w-[90%] md:w-[80%] lg:w-[75%] border border-yellow-300 bg-yellow-100 rounded-sm shadow-sm mb-10 mx-auto text-center">
+            <p>{ msg.info || msg.error }</p>
         </div>
     )
 }
-const blogs =[
-    "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Minus incidunt praesentium aliquam laudantium quae temporibus quia non beatae harum, a distinctio officiis dicta ipsam tenetur quo molestias nisi officia neque.",
-    "Lorem ipsum dolor sit amet consectetur adipisicing elit. A totam accusamus beatae cupiditate voluptatem vitae enim. Corporis, rerum alias repellendus perspiciatis nesciunt perferendis quam at quae possimus, culpa adipisci nulla?",
-"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Nesciunt fuga veritatis impedit provident nemo voluptates obcaecati optio ad distinctio, ut et, accusantium animi veniam qui ipsum molestias totam, ratione eius.",
-"Lorem ipsum, dolor sit amet consectetur adipisicing elit. Distinctio, amet eos laboriosam qui temporibus voluptate perspiciatis reprehenderit voluptates est omnis neque, dignissimos consectetur magni? Nihil impedit magnam consectetur laboriosam officia?",
-"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Architecto minima repellendus libero repudiandae similique obcaecati corrupti. Quas fugiat veniam sed minus. Alias laboriosam nobis dolorem! Quaerat laboriosam inventore aperiam optio.",
-"Lorem ipsum dolor sit amet consectetur adipisicing elit. Error quibusdam fuga eligendi suscipit sint quas aspernatur consectetur, tenetur nulla earum numquam ullam est molestiae impedit soluta laboriosam. Distinctio, enim. Itaque."
-]
 
 export default Blog

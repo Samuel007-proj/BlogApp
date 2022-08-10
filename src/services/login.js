@@ -1,19 +1,14 @@
-import axios from "axios";
+import axios from "axios"
+const baseUrl = 'http://localhost:3003/login'
 
-const baseUrl = 'http://localhost:3003/api/login';
-
-let token = null
-const setToken = newToken => {
-    token = `bearer ${newToken}`
-}
-
-const create = async loginCred => {
-    const config = {
-        headers: { Authorization: token }
-    }
-
-    const resp = await axios.post({baseUrl}, loginCred, config)
+const signIn = async loginCred => {
+    const resp = await axios.post(baseUrl, loginCred)
     return resp.data
 }
 
-export {create, setToken}
+const signUp = async loginCred => {
+    const resp = await axios.post('http://localhost:3003/api/users', loginCred)
+    return resp.data
+}
+
+export default { signIn, signUp } 
