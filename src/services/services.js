@@ -55,11 +55,25 @@ const deleteBlog = async (id) => {
     }
     
 }
-const update = async ({ blog, id }) =>{
+const update = async (blog, id) => {
     const resp = await axios.put(`${baseUrl}/${id}`, blog, config())
 
     return resp.data
 }
 
+const getStats = async id => { 
+    try {
+        const resp = await axios.get(`http://localhost:3003/api/user/${id}`)
+        return resp.data
+    } catch (err) {
+        if(err.response.data.error === 'token expired'){
+            window.localStorage.removeItem('blogUser')
+            throw new Error(err.response.data.error)
+         }else{
+            throw new Error(err.response.data.error)
+         }
+    }
+}
 
-export default { getAll, create, deleteBlog,  update, setToken}
+
+export default { getAll, create, deleteBlog,  update, getStats, setToken}

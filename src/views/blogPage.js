@@ -6,6 +6,8 @@ const Blog = ({ user, setUser }) => {
 
     const [blogs, setBlogs] = useState([])
     const [msg, setMsg] = useState({info: '', error: ''})
+    const [stats, setStats] = useState({})
+
     
     useEffect(() => {
         const userString = window.localStorage.getItem('blogUser')
@@ -23,6 +25,11 @@ const Blog = ({ user, setUser }) => {
                 if(blogs){
                     setBlogs(blogs)
                 }
+                const username = await user.username
+                const userStats = await services.getStats(username)
+                if(userStats){
+                    setStats(userStats)
+                }
             } catch (err) {
                 alert(`${err.message}, logging out`)
                 console.log(err.message)
@@ -32,7 +39,7 @@ const Blog = ({ user, setUser }) => {
             
         })()
         
-    }, [setUser])
+    }, [setUser, user])
 
     return(
         <div>
@@ -41,7 +48,7 @@ const Blog = ({ user, setUser }) => {
                     <h1>Blogs</h1>
                 </div>
                 <div className="text-normal text-slate-400 font-normal tracking-wide shrink-0 pr-[5%] md:pr-[10%] lg:pr-[12.5%] lg:text-xl">
-                    <ActiveUser user={user} setUser={setUser} msg={msg} setMsgTime={setMsg} />
+                    <ActiveUser user={user} setUser={setUser} msg={msg} setMsgTime={setMsg} stats={stats} />
                 </div>
             </div>
             { (msg.info || msg.error) && <Msg msg={msg}/> }
@@ -51,8 +58,7 @@ const Blog = ({ user, setUser }) => {
     )
 }
 
-const ActiveUser = ({ user, setUser, msg, setMsgTime }) => {
-
+const ActiveUser = ({ user, setUser, msg, setMsgTime, stats }) => {
     const handleLogout = e  => {
         e.preventDefault()
         
@@ -62,17 +68,26 @@ const ActiveUser = ({ user, setUser, msg, setMsgTime }) => {
                 window.localStorage.removeItem('blogUser')
                 setUser(null)     
             } 
-            setMsgTime({ ...msg, info: `{user.username} logged out` })
+            setMsgTime({ ...msg, info: `${user.username} logged out` })
         } catch(err){
             setMsgTime({ ...msg, error: err.message })
         } 
     }
 
     return(
-        <form onSubmit={handleLogout}>
-            <label>{user.username}</label>
-            <button className="shrink-0 px-2 py-1 ml-3 border border-slate-200 hover:bg-slate-400 hover:text-slate-100 text-md rounded-lg font-light text-sm">logout</button>
+        <div>
+            <form onSubmit={handleLogout}>
+                <label>{user.username}</label>
+                <button className="shrink-0 px-2 py-1 ml-3 border border-slate-200 hover:bg-slate-400 hover:text-slate-100 text-md rounded-lg font-light text-sm">logout</button>
         </form>
+
+        <div className="flex flexwrap flex-col text-sm px-2, py-3">
+            <p><span className="font-bold">{stats.blogsLength}</span> blogs</p>
+            <p><span className="font-bold">{stats.totalLikes}</span> totalLikes</p>
+            <p>most liked blog:<span className="font-bold">{stats.mostLikedBlogTitle}</span></p>
+        </div>
+        </div>
+        
     )
 }
 
@@ -139,7 +154,7 @@ const UsersBlogs = ({blogs, setBlog, user}) => {
     }
 
     return(
-        <div className="w-[90%] md:w-[80%] lg:w-[75%] mx-auto border border-slate-200 rounded-md mb-10 flexwrap">
+        <div className="w-[90%] md:w-[80%] lg:w-[75%] mx-auto border border-slate-200 rounded-md mb-10 flexwrap md:max-h-96 md:overflow-auto ">
             <ul className="list-none p-6 divide-y divide-slate-200 text-slate-500">
                 {
                     blogs.map((blog) => {
