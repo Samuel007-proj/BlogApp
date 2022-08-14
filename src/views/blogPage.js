@@ -16,7 +16,7 @@ const Blog = ({ user, setUser }) => {
         } else {
             setUser(null)
         }   
-    }, [user, setUser])
+    })
 
     useEffect(()=> {
         (async ()=>{
@@ -31,29 +31,32 @@ const Blog = ({ user, setUser }) => {
                     setStats(userStats)
                 }
             } catch (err) {
-                alert(`${err.message}, logging out`)
-                console.log(err.message)
-                setUser(null)
+                if(err === 'token expired'){
+                    alert(`${err.message}, logging out`)
+                    console.log(err)
+                    setUser(null)
+                }
+                
             }
             
             
         })()
         
-    }, [setUser, user])
+    }, [blogs])
 
     return(
         <div>
-            <div className="flex flexwrap w-full mb-10 pt-5 pb-5 items-baseline shadow-sm">
-                <div className="text-3xl text-slate-500 font-bold tracking-wide w-full pl-[5%] md:pl-[10%] lg:text-4xl lg:pl-[12.5%]">
+            <div className="flex flex-wrap max-w-full mb-10 pt-10 pb-5 items-baseline shadow-md bg-slate-50">
+                <div className="text-3xl text-slate-500 font-bold tracking-wide w-1/3 pl-[5%] md:pl-[10%] lg:text-4xl lg:pl-[12.5%]">
                     <h1>Blogs</h1>
                 </div>
-                <div className="text-normal text-slate-400 font-normal tracking-wide shrink-0 pr-[5%] md:pr-[10%] lg:pr-[12.5%] lg:text-xl">
+                <div className=" w-2/3 text-normal text-slate-400 font-normal tracking-wide shrink-0 pr-[5%] md:pr-[10%] lg:pr-[12.5%] lg:text-xl">
                     <ActiveUser user={user} setUser={setUser} msg={msg} setMsgTime={setMsg} stats={stats} />
                 </div>
             </div>
             { (msg.info || msg.error) && <Msg msg={msg}/> }
-            <NewBlogForm setMsgTime={setMsg} msg={msg} setBlogs={setBlogs} blogs={blogs} setUser={setUser}/>
-            <UsersBlogs blogs={blogs} setBlog={setBlogs} user={user}/>
+            <NewBlogForm setMsgTime={setMsg} msg={msg} setBlogs={setBlogs} blogs={blogs} setUser={setUser} setStats={setStats} username={user.username}/>
+            <UsersBlogs blogs={blogs} setBlog={setBlogs} user={user} setStats={setStats}  />
         </div>
     )
 }
@@ -67,31 +70,42 @@ const ActiveUser = ({ user, setUser, msg, setMsgTime, stats }) => {
             if(confirmLogout){
                 window.localStorage.removeItem('blogUser')
                 setUser(null)     
+                setMsgTime({ ...msg, info: `${user.username} logged out` })
+
             } 
-            setMsgTime({ ...msg, info: `${user.username} logged out` })
         } catch(err){
             setMsgTime({ ...msg, error: err.message })
         } 
     }
 
     return(
-        <div>
-            <form onSubmit={handleLogout}>
+        <div className="mr-0 ml-auto flex flex-wrap flex-col text-sm items-end max-w-lg capitalize">
+            <form onSubmit={handleLogout} className="mr-0 ml-auto font-semibold text-sm">
                 <label>{user.username}</label>
                 <button className="shrink-0 px-2 py-1 ml-3 border border-slate-200 hover:bg-slate-400 hover:text-slate-100 text-md rounded-lg font-light text-sm">logout</button>
-        </form>
-
-        <div className="flex flexwrap flex-col text-sm px-2, py-3">
-            <p><span className="font-bold">{stats.blogsLength}</span> blogs</p>
-            <p><span className="font-bold">{stats.totalLikes}</span> totalLikes</p>
-            <p>most liked blog:<span className="font-bold">{stats.mostLikedBlogTitle}</span></p>
-        </div>
+            </form>
+            <div className=" text-sm text-sm py-3">
+                {
+                    stats.nostats 
+                    ? 
+                        <div className=" flex flex-wrap flex-col items-end">
+                            <p><span className="font-bold">{stats.nostats}</span></p>
+                        </div>
+                    :   
+                        <div className=" flex flex-wrap flex-col items-end text-end ">
+                            <p><span className="font-bold">{stats.blogsLength}</span> blogs</p>
+                            <p><span className="font-bold">{stats.totalLikes}</span> totalLikes</p>
+                            <p className="grow-0">most liked blog: <span className="font-bold">{stats.mostLikedBlogTitle}</span></p>
+                        </div>
+                    
+                }
+            </div>
         </div>
         
     )
 }
 
-const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser}) => {
+const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser, setStats, username}) => {
     let [blogEntry, setBlogEntry] = useState({
         title:'',
         author: '',
@@ -116,6 +130,11 @@ const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser}) => {
             alert('logging out')
             setUser(null)
         }
+
+        let stats = await services.getStats(username)
+        if(stats){
+            setStats(stats)
+        }
   
     }
     return (
@@ -131,7 +150,7 @@ const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser}) => {
     
 }
 
-const UsersBlogs = ({blogs, setBlog, user}) => {
+const UsersBlogs = ({blogs, setBlog, user, setStats}) => {
 
     const handleDeletion = async (event) => {
         event.preventDefault()
@@ -151,28 +170,42 @@ const UsersBlogs = ({blogs, setBlog, user}) => {
         } else {
             alert('You are allowed to delete this blog')
         }
+
+        let stats = await services.getStats(activeUser)
+        if(stats){
+            setStats(stats)
+        }
     }
 
     return(
-        <div className="w-[90%] md:w-[80%] lg:w-[75%] mx-auto border border-slate-200 rounded-md mb-10 flexwrap md:max-h-96 md:overflow-auto ">
-            <ul className="list-none p-6 divide-y divide-slate-200 text-slate-500">
+        <div className="max-w-full md:max-w-[80%] lg:max-w-[75%] mx-auto border-none md:border md:border-slate-200 rounded-md mb-10 md:max-h-96 md:overflow-auto ">
+            <ul className="list-none px-6 divide-y divide-slate-200 text-slate-500 max-w-full ">
                 {
-                    blogs.map((blog) => {
-                            return <li id={blog.id} className=" flex w-full py-4 items-baseline">
+                    blogs.noblogs
+                    ?
+                        <div>
+                            <p>{blogs.noblogs}</p>
+                        </div>
+                    :
+                        blogs.map((blog) => {
+                            return <li id={blog.id} className="flex flex-col flex-wrap max-w-full py-5 items-baseline">
                                         
-                                        <div className="w-full">
-                                            <p className="text-slate-600 font-bold ">{blog.title}</p>
-                                            <p>{blog.author}</p>
-                                            <p>{`${blog.likes}K`}</p>
-                                            <p className="underline italic text-blue-500 active:text-blue-500 visited:text-indigo-400"><a  target='blank' href={blog.url}>{blog.url}</a></p> 
+                                        <div className=" grow-0 w-full ">
+                                            <p className=" truncate text-slate-600 font-bold ">{blog.title}</p>
+                                            <p className=" truncate ">{blog.author}</p>
+                                            <p className=" truncate ">{`${blog.likes}K`}</p>
+                                            <p className=" truncate underline underline-offset-2 decoration-sky-300 decoration-solid decoration-from-font grow-0 italic text-blue-500 active:text-blue-500 visited:text-indigo-400"><a  target='blank' href={blog.url}>{blog.url}</a></p> 
                                         </div>
 
-                                        <div className=" italic text-slate-400 font-normal block ">
-                                            { blog.user?.username ? <p>Posted by {blog.user.username}</p> : ''}
+                                        <div className="flex flex-row-reverse shrink-0 mt-5 w-full md:w-1/3 md:mr-0 md:ml-auto">
+                                            <form blogtodelete={ JSON.stringify(blog) } onSubmit={ handleDeletion } className=" mr-0 ml-auto">
+                                                <button className=" py-2 px-8 border border-slate-400 hover:bg-slate-400 text-sm font-semibold text-slate-400 hover:text-slate-100 rounded-lg">delete</button>
+                                            </form>
+                                            <div className=" italic capitalize text-slate-400 font-semibold text-sm block my-2 md:mr-0 md:ml-auto">
+                                                { blog.user?.username ? <p>{blog.user.username}</p> : ''}
+                                            </div>
                                         </div>
-                                        <form blogtodelete={ JSON.stringify(blog) } onSubmit={ handleDeletion }>
-                                            <button className="shrink-0 p-2 ml-5 border border-slate-400 hover:border-none hover:bg-slate-400 text-sm font-semibold text-slate-400  hover:text-slate-100 border rounded-lg">delete</button>
-                                        </form>
+                                        
                                     </li>
                     })
                 }

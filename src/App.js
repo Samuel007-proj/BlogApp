@@ -7,11 +7,14 @@ const App = () => {
   const [user, setUser] = useState(null)
 
   useEffect( ()=>{
-    let savedUser = window.localStorage.getItem('blogUser')
-    if(savedUser){
-      const activeUser = JSON.parse(savedUser)
-      setUser(activeUser)
-    }
+    (async ()=> {
+      let savedUser = await window.localStorage.getItem('blogUser')
+      if(await savedUser){
+        const activeUser = JSON.parse(savedUser)
+        setUser(activeUser)
+      }
+    })()
+    
   }, [])
 
   return (

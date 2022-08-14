@@ -11,4 +11,9 @@ const signUp = async loginCred => {
     return resp.data
 }
 
-export default { signIn, signUp } 
+const pwdReset = async (username, loginCred) => {
+    const resp = await axios.put(`http://localhost:3003/api/user/${username}`, loginCred)
+    return resp.data
+}
+
+export default { signIn, signUp, pwdReset } 
