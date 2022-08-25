@@ -132,9 +132,9 @@ const InputComp =({ name, title, type, value, change})=>{
     )
 }
 
-const Button = ({type, content}) => {
+const Button = ({type, content, clickFn}) => {
     return(
-        <button type={type} className="mt-8 w-full px-3 py-3 bg-blue-600 border border-blue-100 rounded-md outline-none text-md font-bold text-slate-50 tracking-wide">{content}</button>
+        <button type={type} onClick={clickFn} className="mt-8 w-full px-3 py-3 bg-blue-600 border border-blue-100 rounded-md outline-none text-md font-bold text-slate-50 tracking-wide">{content}</button>
     )
 }
 

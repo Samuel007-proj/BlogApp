@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { InputComp, Button } from "./login";
+import React, { useEffect, useState, useRef } from "react";
 import services from "../services/services"
+import BlogForm from "./blogForm";
+import Togglable from "./Togglable";
 
 const Blog = ({ user, setUser }) => {
 
     const [blogs, setBlogs] = useState([])
     const [msg, setMsg] = useState({info: '', error: ''})
     const [stats, setStats] = useState({})
+
+    const blogFormRef = useRef()
 
     
     useEffect(() => {
@@ -42,7 +45,35 @@ const Blog = ({ user, setUser }) => {
             
         })()
         
-    }, [blogs])
+    }, [])
+
+
+    const addBlog = async newBlog => {
+        
+        try{
+            const savedBlog = await services.create(newBlog)
+            if(savedBlog) setBlogs( blogs.concat(savedBlog) )
+            blogFormRef.current.toggleVisibility()
+            alert(`Created ${savedBlog.title}`)
+            let stats = await services.getStats(user.username)
+            if(stats){
+                setStats(stats)
+            }
+            return true
+        } catch(err){
+            setMsg({...msg, error: err.message})
+            if(err === 'token expired'){
+                alert('logging out')
+                setUser(null)
+                return false
+            }
+            return false
+            
+        }
+
+        
+
+    }
 
     return(
         <div>
@@ -54,9 +85,14 @@ const Blog = ({ user, setUser }) => {
                     <ActiveUser user={user} setUser={setUser} msg={msg} setMsgTime={setMsg} stats={stats} />
                 </div>
             </div>
-            { (msg.info || msg.error) && <Msg msg={msg}/> }
-            <NewBlogForm setMsgTime={setMsg} msg={msg} setBlogs={setBlogs} blogs={blogs} setUser={setUser} setStats={setStats} username={user.username}/>
-            <UsersBlogs blogs={blogs} setBlog={setBlogs} user={user} setStats={setStats}  />
+            <div className="max-w-[90%] md:max-w-[80%] lg:max-w-[75%] mx-auto">
+                { (msg.info || msg.error) && <Msg msg={msg}/> }
+                <Togglable buttonLabel='new blog' ref={blogFormRef} exit="cancel entry">
+                    <BlogForm  addBlog={addBlog}/>
+                </Togglable>
+                <UsersBlogs blogs={blogs} setBlog={setBlogs} user={user} setStats={setStats}  />
+            </div>
+            
         </div>
     )
 }
@@ -105,52 +141,8 @@ const ActiveUser = ({ user, setUser, msg, setMsgTime, stats }) => {
     )
 }
 
-const NewBlogForm = ({ setMsgTime, msg, setBlogs, blogs, setUser, setStats, username}) => {
-    let [blogEntry, setBlogEntry] = useState({
-        title:'',
-        author: '',
-        url: ''
-    })
-
-    const handleNewBlog = async (e) => {
-        e.preventDefault()
-        const newBlog = {
-            title: blogEntry.title,
-            author: blogEntry.author,
-            url: blogEntry.url,
-            likes: Math.floor(100 * Math.random())
-        }
-        try{
-            const savedBlog = await services.create(newBlog)
-            if(savedBlog) setBlogs( blogs.concat(savedBlog) )
-            setBlogEntry({title: '', author: '', url: ''})
-            alert(`Created ${savedBlog.title}`)
-        } catch(err){
-            setMsgTime({...msg, error: err.message})
-            alert('logging out')
-            setUser(null)
-        }
-
-        let stats = await services.getStats(username)
-        if(stats){
-            setStats(stats)
-        }
-  
-    }
-    return (
-        <div className="w-[90%] mx-auto mb-10 p-3 border border-slate-200 rounded-md shadow-md md:w-[80%] lg:w-[75%] lg:text-xl">
-            <form onSubmit={handleNewBlog}>
-                <InputComp title="Blog's title" type="text" value={blogEntry.title} change={ e => setBlogEntry({...blogEntry, title: e.target.value}) }/>
-                <InputComp title="Blog's Author" type="text" value={blogEntry.author} change={e => setBlogEntry({...blogEntry, author: e.target.value})}/>
-                <InputComp title="Blog's reference url" type="text" value={blogEntry.url} change={e => setBlogEntry({...blogEntry, url: e.target.value})} />
-                <Button type="submit" content="Save blog Reference"/>
-            </form>
-        </div>
-    )
-    
-}
-
-const UsersBlogs = ({blogs, setBlog, user, setStats}) => {
+const UsersBlogs = ({ blogs, setBlog, user, setStats }) => {
+    const blogRef = useRef()
 
     const handleDeletion = async (event) => {
         event.preventDefault()
@@ -175,6 +167,26 @@ const UsersBlogs = ({blogs, setBlog, user, setStats}) => {
         if(stats){
             setStats(stats)
         }
+    } 
+
+    const handleLike = async id => {
+        console.log(id)
+        
+        try{
+            const update = {
+                item: 'likes'
+            }
+            let updatedBlog = await services.update(update, id)
+            console.log(updatedBlog)
+
+            if(updatedBlog){
+                setBlog(blogs.map(blog => { return blog.id === id ?  updatedBlog : blog }))
+            }
+        }catch(err){
+            console.log(err)
+        }
+        
+
     }
 
     return(
@@ -188,18 +200,29 @@ const UsersBlogs = ({blogs, setBlog, user, setStats}) => {
                         </div>
                     :
                         blogs.map((blog) => {
+                            
                             return <li id={blog.id} className="flex flex-col flex-wrap max-w-full py-5 items-baseline">
                                         
                                         <div className=" grow-0 w-full ">
                                             <p className=" truncate text-slate-600 font-bold ">{blog.title}</p>
-                                            <p className=" truncate ">{blog.author}</p>
-                                            <p className=" truncate ">{`${blog.likes}K`}</p>
-                                            <p className=" truncate underline underline-offset-2 decoration-sky-300 decoration-solid decoration-from-font grow-0 italic text-blue-500 active:text-blue-500 visited:text-indigo-400"><a  target='blank' href={blog.url}>{blog.url}</a></p> 
-                                        </div>
+                                            <Togglable buttonLabel="show more" exit="show less" ref={blogRef}>
+                                                <div>
+                                                    <p className=" truncate ">{blog.author}</p>
+                                                    <p className=" truncate ">{`${blog.likes}K`}
+                                                        <span >
+                                                            <button onClick={ ()=>handleLike(blog.id) }
+                                                                className = "ml-5 px-2 border boder-slate-300 rounded-lg text-slate-300 active:bg-slate-300 active:text-slate-50 "
+                                                                >like</button>
+                                                        </span>
+                                                        </p>
+                                                    <p className=" truncate underline underline-offset-2 decoration-sky-300 decoration-solid decoration-from-font grow-0 italic text-blue-500 active:text-blue-500 visited:text-indigo-400"><a  target='blank' href={blog.url}>{blog.url}</a></p> 
+                                                </div>
+                                            </Togglable>
+                                            </div>
 
-                                        <div className="flex flex-row-reverse shrink-0 mt-5 w-full md:w-1/3 md:mr-0 md:ml-auto">
+                                        <div className="flex flex-row-reverse shrink-0 mt-1 w-full md:w-1/3 md:mr-0 md:ml-auto">
                                             <form blogtodelete={ JSON.stringify(blog) } onSubmit={ handleDeletion } className=" mr-0 ml-auto">
-                                                <button className=" py-2 px-8 border border-slate-400 hover:bg-slate-400 text-sm font-semibold text-slate-400 hover:text-slate-100 rounded-lg">delete</button>
+                                                <button className=" py-1 px-2 border border-slate-300 active:bg-slate-300 text-sm font-semibold text-slate-400 active:text-slate-50 rounded-lg">delete</button>
                                             </form>
                                             <div className=" italic capitalize text-slate-400 font-semibold text-sm block my-2 md:mr-0 md:ml-auto">
                                                 { blog.user?.username ? <p>{blog.user.username}</p> : ''}
