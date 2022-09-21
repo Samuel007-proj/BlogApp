@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseUrl = 'http://localhost:3003/api/blogs';
+const baseUrl = 'https://agile-hamlet-57701.herokuapp.com/api/blogs';
 
 let token  = null
 
@@ -55,15 +55,15 @@ const deleteBlog = async (id) => {
     }
     
 }
-const update = async (blog, id) => {
-    const resp = await axios.put(`${baseUrl}/${id}`, blog, config())
+const update = async (update, id) => {
+    const resp = await axios.put(`${baseUrl}/${id}`, update, config())
 
     return resp.data
 }
 
 const getStats = async id => { 
     try {
-        const resp = await axios.get(`http://localhost:3003/api/user/${id}`)
+        const resp = await axios.get(`https://agile-hamlet-57701.herokuapp.com/api/user/${id}`)
         return resp.data
     } catch (err) {
         if(err.response.data.error === 'token expired'){

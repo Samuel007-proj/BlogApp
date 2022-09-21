@@ -1,7 +1,9 @@
 import React, { useState } from "react"
 import  login  from "../services/login"
+import { useStore } from "../store"
 
-const LoginSignUp = ({ setUser }) => {
+
+const LoginSignUp = () => {
     const [loginState , setLoginState] = useState({signUp: true, pwdReset: false})
 
     const handleSigns =  (e) => {
@@ -30,7 +32,7 @@ const LoginSignUp = ({ setUser }) => {
                 }
             </form>
             {
-                loginState.signUp && !loginState.pwdReset ? <SignIn loginState={loginState} setLoginState={ setLoginState } setUser={setUser} /> : <SignUp loginState={ loginState } setLoginState={ setLoginState } />
+                loginState.signUp && !loginState.pwdReset ? <SignIn loginState={loginState} setLoginState={ setLoginState } /> : <SignUp loginState={ loginState } setLoginState={ setLoginState } />
             }
             </div>
             
@@ -88,7 +90,8 @@ const SignUp = ({ loginState, setLoginState }) => {
     )
 }
 
-const SignIn = ({ loginState, setLoginState, setUser }) => {
+const SignIn = ({ loginState, setLoginState }) => {
+    const dispatch = useStore()[1]
     const [details, setDetails] = useState({
         username: '', pwd: ''
     })
@@ -98,8 +101,7 @@ const SignIn = ({ loginState, setLoginState, setUser }) => {
         try{
             const user = await login.signIn({ username: details.username, password: details.pwd})
             console.log(user)
-            window.localStorage.setItem('blogUser', JSON.stringify(user))
-            setUser(user)
+            dispatch({type: 'user/create', payload: user})
             setDetails({ username: '', pwd: ''})
         }catch(err){
             alert(err.response.data.error)
